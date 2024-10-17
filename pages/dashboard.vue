@@ -124,14 +124,26 @@
           />
         </div>
         <div>
-          <label for="userEmail" class="mb-1 block text-sm font-medium text-red">Email:</label>
+          <label for="userPassword" class="mb-1 block text-sm font-medium text-red">Password:</label>
           <input
-            v-model="newUser.email"
-            id="userEmail"
-            type="email"
+            v-model="newUser.password"
+            id="userPassword"
+            type="password"
             required
             class="w-full rounded-md border border-red px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red"
           />
+        </div>
+        <div>
+          <label for="userRole" class="mb-1 block text-sm font-medium text-red">Role:</label>
+          <select
+            v-model="newUser.role"
+            id="userRole"
+            required
+            class="w-full rounded-md border border-red px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red"
+          >
+            <option value="user">User</option>
+            <option value="admin">Admin</option>
+          </select>
         </div>
         <button
           type="submit"
@@ -170,9 +182,9 @@
             required
             class="w-full rounded-md border border-red px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red"
           >
-            <option value="x">X</option>
-            <option value="o">O</option>
-            <option value="spectator">Spectator</option>
+            <option v-for="type in playerTypes" :key="type.id" :value="type.type">
+              {{ type.type }}
+            </option>
           </select>
         </div>
         <button
@@ -232,112 +244,160 @@
 </template>
 
 <script setup>
-  import { ref } from 'vue'
-  import Modal from '../components/Modal.vue'
+import { ref, onMounted } from 'vue'
+import Modal from '../components/Modal.vue'
 
-  const users = ref([
-    { id: '1', username: 'johndoe', email: 'johndoe@example.com', role: 'x' },
-    { id: '2', username: 'janedoe', email: 'janedoe@example.com', role: 'o' },
-  ])
+const users = ref([])
+const games = ref([])
+const playerTypes = ref([])
 
-  const games = ref([
-    {
-      id: '1',
-      name: 'Tic Tac Toe Championship',
-      description: 'An exciting tournament of Tic Tac Toe games!',
-    },
-    { id: '2', name: 'Casual Match', description: 'A friendly game of Tic Tac Toe' },
-  ])
+// Add these lines to define the modal visibility states
+const showCreateUserModal = ref(false)
+const showChangeRoleModal = ref(false)
+const showCreateGameModal = ref(false)
 
-  const newUser = ref({
-    username: '',
-    email: '',
-  })
+const newUser = ref({ username: '', password: '', role: 'user' })
+const userRoleChange = ref({ userId: '', newRole: '' })
+const newGame = ref({ name: '', description: '' })
 
-  const userRoleChange = ref({
-    userId: '',
-    newRole: 'x',
-  })
-
-  const newGame = ref({
-    name: '',
-    description: '',
-  })
-
-  const showCreateUserModal = ref(false)
-  const showChangeRoleModal = ref(false)
-  const showCreateGameModal = ref(false)
-
-  const openCreateUserModal = () => {
-    showCreateUserModal.value = true
+// Fetch users (players)
+const fetchUsers = async () => {
+  try {
+    const response = await fetch('http://daddynexux-002-site5.dtempurl.com/api/dash/getplayer')
+    const data = await response.json()
+    users.value = data.map(player => ({
+      id: player.id,
+      username: player.userId,
+      role: playerTypes.value.find(pt => pt.id === player.playerTypeId)?.type || 'Unknown'
+    }))
+  } catch (error) {
+    console.error('Error fetching users:', error)
   }
+}
 
-  const openChangeRoleModal = (user) => {
-    userRoleChange.value.userId = user.id
-    userRoleChange.value.newRole = user.role
-    showChangeRoleModal.value = true
+// Fetch player types
+const fetchPlayerTypes = async () => {
+  try {
+    const response = await fetch('http://daddynexux-002-site5.dtempurl.com/api/dash/get-type')
+    playerTypes.value = await response.json()
+  } catch (error) {
+    console.error('Error fetching player types:', error)
   }
+}
 
-  const openCreateGameModal = () => {
-    showCreateGameModal.value = true
-  }
-
-  const createUser = () => {
-    // Simulating API call to create a new user
-    console.log('Creating user:', newUser.value)
-    const newId = (users.value.length + 1).toString()
-    users.value.push({
-      id: newId,
-      username: newUser.value.username,
-      email: newUser.value.email,
-      role: 'spectator',
+// Create user
+const createUser = async () => {
+  try {
+    const response = await fetch('http://daddynexux-002-site5.dtempurl.com/api/dash/signup', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        username: newUser.value.username,
+        password: newUser.value.password,
+        Role: newUser.value.role
+      }),
     })
-    alert(`User created: ${newUser.value.username} (${newUser.value.email})`)
-    newUser.value = { username: '', email: '' }
-    showCreateUserModal.value = false
-  }
 
-  const changeUserRole = () => {
-    // Simulating API call to change user role
-    console.log('Changing user role:', userRoleChange.value)
-    const user = users.value.find((u) => u.id === userRoleChange.value.userId)
-    if (user) {
-      user.role = userRoleChange.value.newRole
-      alert(
-        `User role changed: User ID ${userRoleChange.value.userId} is now ${userRoleChange.value.newRole}`
-      )
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.title || 'Failed to create user');
     }
-    userRoleChange.value = { userId: '', newRole: 'x' }
-    showChangeRoleModal.value = false
-  }
 
-  const createGame = () => {
-    // Simulating API call to create a new game
-    console.log('Creating game:', newGame.value)
-    const newId = (games.value.length + 1).toString()
-    games.value.push({
-      id: newId,
-      name: newGame.value.name,
-      description: newGame.value.description,
+    const userData = await response.json();
+
+    alert(`User created: ${newUser.value.username}`);
+    newUser.value = { username: '', password: '', role: 'user' };
+    showCreateUserModal.value = false;
+    await fetchUsers();
+  } catch (error) {
+    console.error('Error creating user:', error);
+    alert(error.message || 'Error creating user');
+  }
+}
+
+// Change user role
+const changeUserRole = async () => {
+  try {
+    const response = await fetch('http://daddynexux-002-site5.dtempurl.com/api/dash/makeplayer', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        UserId: userRoleChange.value.userId,
+        PlayerTypeId: playerTypes.value.find(pt => pt.type === userRoleChange.value.newRole)?.id
+      }),
     })
-    alert(`Game created: ${newGame.value.name}\nDescription: ${newGame.value.description}`)
-    newGame.value = { name: '', description: '' }
-    showCreateGameModal.value = false
+    if (response.ok) {
+      alert(`User role changed: User ID ${userRoleChange.value.userId} is now ${userRoleChange.value.newRole}`)
+      userRoleChange.value = { userId: '', newRole: '' }
+      showChangeRoleModal.value = false
+      await fetchUsers()
+    } else {
+      alert('Failed to change user role')
+    }
+  } catch (error) {
+    console.error('Error changing user role:', error)
+    alert('Error changing user role')
   }
+}
 
-  const deleteGame = (gameId) => {
-    // Simulating API call to delete a game
-    console.log('Deleting game:', gameId)
-    games.value = games.value.filter((game) => game.id !== gameId)
-    alert(`Game deleted: ID ${gameId}`)
+// Create game
+const createGame = async () => {
+  try {
+    const response = await fetch('http://daddynexux-002-site5.dtempurl.com/api/dash/game', {
+      method: 'POST',
+    })
+    if (response.ok) {
+      alert('New game created')
+      showCreateGameModal.value = false
+      // Since we don't have an API to fetch games, we'll just add a placeholder
+      games.value.push({
+        id: Date.now().toString(),
+        name: 'New Game',
+        description: 'A new game has been created'
+      })
+    } else {
+      alert('Failed to create game')
+    }
+  } catch (error) {
+    console.error('Error creating game:', error)
+    alert('Error creating game')
   }
+}
 
-  const deleteUser = (userId) => {
-    // Simulating API call to delete a user
-    console.log('Deleting user:', userId)
-    users.value = users.value.filter((user) => user.id !== userId)
-    alert(`User deleted: ID ${userId}`)
-  }
+// Add these functions to open the modals
+const openCreateUserModal = () => {
+  showCreateUserModal.value = true
+}
+
+const openChangeRoleModal = (user) => {
+  userRoleChange.value.userId = user.id
+  userRoleChange.value.newRole = user.role
+  showChangeRoleModal.value = true
+}
+
+const openCreateGameModal = () => {
+  showCreateGameModal.value = true
+}
+
+// Delete user and delete game functions (placeholder implementations)
+const deleteUser = (userId) => {
+  console.log('Deleting user:', userId)
+  users.value = users.value.filter(user => user.id !== userId)
+}
+
+const deleteGame = (gameId) => {
+  console.log('Deleting game:', gameId)
+  games.value = games.value.filter(game => game.id !== gameId)
+}
+
+onMounted(async () => {
+  await fetchPlayerTypes()
+  await fetchUsers()
+})
 </script>
 
 <style>

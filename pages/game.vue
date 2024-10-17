@@ -1,7 +1,6 @@
 <template>
   <div class="relative min-h-screen w-full bg-[#FFFBE6] p-8">
     <div class="flex items-center justify-center space-x-12">
-      <!-- Game grid -->
       <div
         class="game-grid mr-8 grid w-full max-w-[700px] grid-cols-5 overflow-hidden rounded-lg border-4 border-red"
       >
@@ -11,17 +10,14 @@
           class="grid-cell flex aspect-square items-center justify-center text-2xl font-bold text-red"
           @click="handleCellClick(n)"
         >
-          <span v-if="!gameBoard[n - 1]" class="absolute text-5xl">{{ n }}</span>
+          <span v-if="!gameBoard[n - 1]" class="absolute text-5xl">{{ n-1 }}</span>
           <span>{{ gameBoard[n - 1] }}</span>
         </div>
       </div>
-
-      <!-- Controls -->
       <div
         class="flex h-full flex-col items-center justify-between"
         :style="{ height: gridHeight + 'px' }"
       >
-        <!-- Timer and Pause button -->
         <div class="mt-6 flex flex-row items-center space-x-4">
           <div
             class="mb-2 w-56 rounded-full bg-red px-4 py-4 text-center text-2xl font-bold text-white"
@@ -68,9 +64,8 @@
             <span class="font-bold">{{ oPoints }}</span>
           </div>
         </div>
-        <!-- Current Player -->
         <div class="my-4 flex h-20 w-40 items-center justify-center rounded-3xl bg-red">
-          <p class="text-6xl font-bold text-white">{{ numOfQuestions || 0 }}</p>
+          <p class="text-6xl font-bold text-white">{{ numOfQuestions }}</p>
         </div>
         <div class="my-4 flex items-center justify-center rounded-3xl border-8 border-red">
           <span class="p-12 text-8xl font-bold text-red">{{ currentPlayer }}</span>
@@ -111,8 +106,6 @@
             </svg>
           </button>
         </div>
-
-        <!-- Result button -->
         <button
           @click="endGame"
           class="rounded-full bg-red px-24 py-4 text-lg font-bold text-white"
@@ -121,8 +114,6 @@
         </button>
       </div>
     </div>
-
-    <!-- Rules Modal -->
     <div
       v-if="showRules"
       class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
@@ -135,106 +126,199 @@
         </button>
       </div>
     </div>
+    <div
+      v-if="showQuestion == false"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60"
+    >
+      <div class="rounded-lg bg-white p-8">
+        <h2 class="mb-4 text-2xl font-bold">{{ question.questionText || 'No question available' }}</h2>
+        <div class="space-y-2">
+          <button @click="answerQuestion('A')" class="w-full rounded bg-red px-4 py-2 text-white">
+            {{ question.optionA || 'Option A' }}
+          </button>
+          <button @click="answerQuestion('B')" class="w-full rounded bg-red px-4 py-2 text-white">
+            {{ question.optionB || 'Option B' }}
+          </button>
+          <button @click="answerQuestion('C')" class="w-full rounded bg-red px-4 py-2 text-white">
+            {{ question.optionC || 'Option C' }}
+          </button>
+          <button @click="answerQuestion('D')" class="w-full rounded bg-red px-4 py-2 text-white">
+            {{ question.optionD || 'Option D' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
-
 <script setup>
-  import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useSignalR } from '@/composables/useSignalR'
 
-  const totalSeconds = ref(20 * 60)
-  const isPaused = ref(false)
-  const gameBoard = ref(Array(25).fill(''))
-  const currentPlayer = ref('X')
-  const xPoints = ref(0)
-  const oPoints = ref(0)
-  const showRules = ref(false)
-  const gridHeight = ref(0)
-  let interval
+const props = defineProps({})
+const emit = defineEmits([])
+const totalSeconds = ref(20 * 60)
+const isPaused = ref(false)
+const gameBoard = ref(Array(25).fill(''))
+const currentPlayer = ref('X')
+const xPoints = ref(0)
+const oPoints = ref(0)
+const showRules = ref(false)
+const gridHeight = ref(0)
+let interval
+const showQuestion = ref(false)
+const question = ref({})
+const currentIndex = ref(null)
+const numOfQuestions = ref(0)
+const route = useRoute()
+const router = useRouter()
+const { connection, invoke, on } = useSignalR()
 
-  const formattedTime = computed(() => {
-    const minutes = Math.floor(totalSeconds.value / 60)
-    const seconds = totalSeconds.value % 60
-    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
-  })
+// Wrap client-side only code in conditional checks
+const gameId = ref('')
+const playerId = ref('')
 
-  const startTimer = () => {
-    interval = setInterval(() => {
-      if (!isPaused.value && totalSeconds.value > 0) {
-        totalSeconds.value--
-      }
-    }, 1000)
-  }
+// Use ref for players
+const players = ref([])
 
-  const togglePause = () => {
-    isPaused.value = !isPaused.value
-  }
+const formattedTime = computed(() => {
+  const minutes = Math.floor(totalSeconds.value / 60)
+  const seconds = totalSeconds.value % 60
+  return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+})
 
-  const handleCellClick = (index) => {
-    if (gameBoard.value[index - 1] === '') {
-      gameBoard.value[index - 1] = currentPlayer.value
-      checkWinner()
-      currentPlayer.value = currentPlayer.value === 'X' ? 'O' : 'X'
+const startTimer = () => {
+  interval = setInterval(() => {
+    if (!isPaused.value && totalSeconds.value > 0) {
+      totalSeconds.value--
+    }
+  }, 1000)
+}
+
+const togglePause = () => {
+  isPaused.value = !isPaused.value
+}
+
+const joinGame = async () => {
+  if (process.client) {
+    try {
+      const response = await invoke('JoinGame', gameId.value, playerId.value)
+      players.value = response.players
+      // Initialize game state based on response
+      gameBoard.value = response.board
+      currentPlayer.value = response.currentPlayer
+      xPoints.value = response.xPoints
+      oPoints.value = response.oPoints
+    } catch (err) {
+      console.error('Error joining game:', err)
     }
   }
+}
 
-  const checkWinner = () => {
-    // Implement win condition checks here
-    // Update xPoints or oPoints accordingly
+const makeMove = async (index) => {
+  if (process.client && gameBoard.value[index] === '' && currentPlayer.value === players.value[0]?.symbol) {
+    try {
+      await invoke('MakeMove', gameId.value, index, playerId.value)
+    } catch (err) {
+      console.error('Error making move:', err)
+    }
   }
+}
 
-  const resetGame = () => {
-    gameBoard.value = Array(25).fill('')
-    currentPlayer.value = 'X'
-    totalSeconds.value = 20 * 60
-    isPaused.value = false
+const answerQuestion = async (answer) => {
+  try {
+    const response = await invoke('AnswerQuestion', gameId.value, playerId.value, answer)
+    if (response.correct) {
+      // Handle correct answer (e.g., update points)
+    }
+    numOfQuestions.value++
+    showQuestion.value = false
+  } catch (err) {
+    console.error('Error answering question:', err)
   }
+}
 
-  const endGame = () => {
-    // Implement end game logic here
-    // You might want to show a modal with final results
+const endGame = async () => {
+  try {
+    const result = await invoke('EndGame', gameId.value)
+    // Handle game end (e.g., show results, navigate to results page)
+    router.push({ name: 'results', params: { gameId: gameId.value } })
+  } catch (err) {
+    console.error('Error ending game:', err)
   }
+}
 
-  onMounted(() => {
+const handleCellClick = (index) => {
+  currentIndex.value = index - 1
+  makeMove(currentIndex.value)
+}
+
+const resetGame = () => {
+  gameBoard.value = Array(25).fill('')
+  currentPlayer.value = 'X'
+  totalSeconds.value = 20 * 60
+  isPaused.value = false
+  numOfQuestions.value = 0
+}
+
+onMounted(async () => {
+  if (process.client) {
     startTimer()
     const gameGrid = document.querySelector('.game-grid')
     if (gameGrid) {
       gridHeight.value = gameGrid.offsetHeight
     }
-  })
 
-  onUnmounted(() => {
+    // Set gameId and playerId
+    gameId.value = route.params.gameId
+    playerId.value = localStorage.getItem('playerId') || ''
+
+    await joinGame()
+
+    on('GameUpdate', (data) => {
+      gameBoard.value = data.board
+      currentPlayer.value = data.currentPlayer
+      xPoints.value = data.xPoints
+      oPoints.value = data.oPoints
+    })
+
+    on('QuestionReceived', (data) => {
+      question.value = data
+      showQuestion.value = true
+    })
+
+    on('GameEnded', (result) => {
+      // Handle game end (e.g., show results, navigate to results page)
+      router.push({ name: 'results', params: { gameId: gameId.value } })
+    })
+  }
+})
+
+onUnmounted(() => {
+  if (process.client) {
     clearInterval(interval)
-  })
+    if (connection.value) {
+      connection.value.stop()
+    }
+  }
+})
 </script>
-
 <style scoped>
   .game-grid {
     border: 5px solid;
     box-shadow: inset 0 0 0 1px;
     @apply border-red;
   }
-
   .grid-cell {
     border-right: 5px solid;
     border-bottom: 5px solid;
     @apply border-red;
     position: relative;
   }
-
-  /* Apply the font to the entire page */
   body {
     font-family: 'Permanent Marker', cursive;
   }
-
-  /* Remove the .handwritten class since it's no longer needed */
-  .handwritten {
-    /* This class can be removed as the font is now applied globally */
-  }
-
-  /* Google Font URL */
   @import url('https://fonts.googleapis.com/css2?family=Permanent+Marker&display=swap');
-
-  /* Add the font to the page */
   @font-face {
     font-family: 'Permanent Marker';
     src: url('https://fonts.googleapis.com/css2?family=Permanent+Marker&display=swap');

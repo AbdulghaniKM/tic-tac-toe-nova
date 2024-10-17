@@ -1,0 +1,93 @@
+http://daddynexux-002-site5.dtempurl.com/api/game/random-question  [GET]
+response = 
+{
+  "id": "GUID",
+  "questionText": "What is the capital of France?",
+  "optionA": "Paris",
+  "optionB": "Berlin",
+  "optionC": "Madrid",
+  "optionD": "Rome",
+  "correctAnswer": "A"
+}
+
+--------------
+http://daddynexux-002-site5.dtempurl.com/api/game/result/{id} [GET]
+
+Response=
+{
+  "Player1": {
+    "Id": "GUID",
+    "Points": 10,
+    "TotalTime": "40"
+  },
+  "Player2": {
+    "Id": "GUID",
+    "Points": 8,
+    "TotalTime": "70"
+  }
+}
+
+-------------------
+http://daddynexux-002-site5.dtempurl.com/api/login [POST]
+request = 
+{
+  "username": "john_doe",
+  "password": "P@ssw0rd",
+
+}
+--------------------
+http://daddynexux-002-site5.dtempurl.com/api/dash/signup [POST]
+request = 
+{
+  "username": "john_doe",
+  "password": "P@ssw0rd",
+  "Role": "admin or user"
+}
+---------------------
+http://daddynexux-002-site5.dtempurl.com/api/dash/makeplayer [POST]
+request=
+{
+  "UserId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+  "PlayerTypeId": "a12345b6-c78d-4567-89e0-1b23456cd789"
+}
+---------------------
+http://daddynexux-002-site5.dtempurl.com/api/dash/game [POST]
+no request body.
+---------------------
+http://daddynexux-002-site5.dtempurl.com/api/dash/getplayer [GET]
+Response= 
+[
+  {
+    "id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+    "userId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+    "playerTypeId": "a12345b6-c78d-4567-89e0-1b23456cd789",
+    "points": 120,
+    "totalTime": 450
+  },
+  {
+    "id": "d12345b6-c78d-4567-89e0-1b23456cd789",
+    "userId": "b12345a6-b789-4567-9e01-2b34567cd890",
+    "playerTypeId": "a23456b7-d890-5678-90e1-3b45678cd901",
+    "points": 85,
+    "totalTime": 300
+  }
+]
+-------------------------
+http://daddynexux-002-site5.dtempurl.com/api/dash/get-type [GET]
+Response = 
+[
+  {
+    "id": "a12345b6-c78d-4567-89e0-1b23456cd789",
+    "type": "X"
+  },
+  {
+    "id": "b23456c7-d890-5678-90e1-2c34567de890",
+    "type": "O"
+  },
+ {
+    "id": "b23456c7-d890-5678-90e1-2c34567de890",
+    "type": "admin"
+  }
+]
+-----------------------
+

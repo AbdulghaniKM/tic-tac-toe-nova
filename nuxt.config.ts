@@ -6,4 +6,8 @@ export default defineNuxtConfig({
   css: [
     '@/assets/css/main.css',
   ],
+  ssr: false,
+  generate: {
+    crawler: false
+  }
 })
